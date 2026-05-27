@@ -688,36 +688,47 @@
 
 
   async function initDictionary() {
-    // === [임시 진단] PokeAPI 본체 이미지 직접 표시 테스트 ===
-    setTimeout(() => {
+    // === [임시 진단 v3] 실제 마휘핑 폼 ID로 이미지 테스트 ===
+    setTimeout(async () => {
       const testDiv = document.createElement('div');
-      testDiv.style.cssText = 'position:fixed;top:10px;right:10px;background:white;padding:10px;border:2px solid red;z-index:99999;font-size:11px;max-width:340px;';
-      testDiv.innerHTML = `
-        <b>🔍 PokeAPI 이미지 진단</b> <button onclick="this.parentElement.remove()" style="float:right">X</button><br>
-        (이 박스는 닫아도 돼요)<br><br>
-
-        <b>마휘핑 폼 ID 10123 (vanilla-cream-strawberry)</b><br>
-        <b>A. front_default:</b><br>
-        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/10123.png" style="border:1px solid #ccc;width:80px;height:80px"
-             onload="this.nextElementSibling.textContent='✓'" onerror="this.nextElementSibling.textContent='✗'"><span>...</span><br>
-
-        <b>B. home (홈 고화질):</b><br>
-        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/10123.png" style="border:1px solid #ccc;width:80px;height:80px"
-             onload="this.nextElementSibling.textContent='✓'" onerror="this.nextElementSibling.textContent='✗'"><span>...</span><br>
-
-        <b>C. official-artwork:</b><br>
-        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10123.png" style="border:1px solid #ccc;width:80px;height:80px"
-             onload="this.nextElementSibling.textContent='✓'" onerror="this.nextElementSibling.textContent='✗'"><span>...</span><br>
-
-        <b>D. 다른 데코 ID 10130 (vanilla-cream-berry):</b><br>
-        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/10130.png" style="border:1px solid #ccc;width:80px;height:80px"
-             onload="this.nextElementSibling.textContent='✓'" onerror="this.nextElementSibling.textContent='✗'"><span>...</span><br>
-
-        <b>E. 다른 크림 ID 10145 (ruby-cream-berry):</b><br>
-        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/10145.png" style="border:1px solid #ccc;width:80px;height:80px"
-             onload="this.nextElementSibling.textContent='✓'" onerror="this.nextElementSibling.textContent='✗'"><span>...</span>
-      `;
+      testDiv.style.cssText = 'position:fixed;top:10px;right:10px;background:white;padding:10px;border:2px solid red;z-index:99999;font-size:11px;max-width:380px;max-height:90vh;overflow-y:auto;';
+      testDiv.innerHTML = `<b>🔍 진단 v3 (로딩중...)</b> <button onclick="this.parentElement.remove()" style="float:right">X</button><br>`;
       document.body.appendChild(testDiv);
+
+      try {
+        const res = await fetch('https://beta.pokeapi.co/graphql/v1beta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: `query {
+              pokemon_v2_pokemon(where: {pokemon_species_id: {_eq: 869}}) {
+                id name
+                pokemon_v2_pokemonforms { id name }
+              }
+            }`
+          })
+        });
+        const d = await res.json();
+
+        let html = '<b>🔍 마휘핑 실제 폼 ID 진단</b> <button onclick="this.parentElement.remove()" style="float:right">X</button><br><br>';
+
+        d.data.pokemon_v2_pokemon.forEach(p => {
+          html += `<b>${p.name}</b> (pokemon.id=${p.id})<br>`;
+          p.pokemon_v2_pokemonforms.slice(0, 6).forEach(f => {
+            const url1 = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${f.id}.png`;
+            const url2 = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${f.id}.png`;
+            html += `<div style="border-bottom:1px solid #eee;padding:4px 0">`;
+            html += `<small>form.id=${f.id} (${f.name})</small><br>`;
+            html += `<img src="${url1}" style="width:50px;height:50px;border:1px solid #ccc" title="home/${f.id}.png" onerror="this.style.opacity=0.2;this.alt='✗'">`;
+            html += `<img src="${url2}" style="width:50px;height:50px;border:1px solid #ccc;margin-left:4px" title="pokemon/${f.id}.png" onerror="this.style.opacity=0.2;this.alt='✗'">`;
+            html += `</div>`;
+          });
+          html += `<br>`;
+        });
+        testDiv.innerHTML = html;
+      } catch(e) {
+        testDiv.innerHTML = '진단 실패: ' + e.message;
+      }
     }, 500);
     // === [진단 끝] ===
 
