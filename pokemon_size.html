@@ -688,6 +688,36 @@
 
 
   async function initDictionary() {
+    // === [임시 진단] 마휘핑 이미지 직접 표시 테스트 ===
+    setTimeout(() => {
+      const testDiv = document.createElement('div');
+      testDiv.style.cssText = 'position:fixed;top:10px;right:10px;background:white;padding:10px;border:2px solid red;z-index:99999;font-size:11px;max-width:300px;';
+      testDiv.innerHTML = `
+        <b>🔍 마휘핑 이미지 진단 (이 박스는 진단 후 X 눌러 닫기)</b><br>
+        <button onclick="this.parentElement.remove()" style="float:right">X</button><br><br>
+        <b>1. Showdown 직접:</b><br>
+        <img src="https://play.pokemonshowdown.com/sprites/ani/alcremie-vanilla-cream-strawberry.gif"
+             style="border:1px solid #ccc;width:80px;height:80px"
+             onload="this.nextElementSibling.textContent='✓ 보임'"
+             onerror="this.nextElementSibling.textContent='✗ 안 보임'">
+        <span>로딩중...</span><br><br>
+        <b>2. weserv 프록시:</b><br>
+        <img src="https://images.weserv.nl/?url=play.pokemonshowdown.com/sprites/ani/alcremie-vanilla-cream-strawberry.gif&output=png&n=1"
+             style="border:1px solid #ccc;width:80px;height:80px"
+             onload="this.nextElementSibling.textContent='✓ 보임'"
+             onerror="this.nextElementSibling.textContent='✗ 안 보임'">
+        <span>로딩중...</span><br><br>
+        <b>3. weserv (단순 GIF):</b><br>
+        <img src="https://images.weserv.nl/?url=play.pokemonshowdown.com/sprites/ani/alcremie-vanilla-cream-strawberry.gif"
+             style="border:1px solid #ccc;width:80px;height:80px"
+             onload="this.nextElementSibling.textContent='✓ 보임'"
+             onerror="this.nextElementSibling.textContent='✗ 안 보임'">
+        <span>로딩중...</span>
+      `;
+      document.body.appendChild(testDiv);
+    }, 500);
+    // === [진단 끝] ===
+
     try {
       const res = await fetch('https://beta.pokeapi.co/graphql/v1beta', {
         method: 'POST',
