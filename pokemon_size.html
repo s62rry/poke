@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>포켓몬 크기 비교</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+  <script src="https://kit.fontawesome.com/6f87584c9f.js" crossorigin="anonymous"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f4f4f5;
+      --surface: #ffffff;
+      --surface-2: #fafafa;
+      --border: #e4e4e7;
+      --border-strong: #d4d4d8;
+      --text: #18181b;
+      --text-2: #52525b;
+      --text-3: #a1a1aa;
+      --accent: #18181b;
+      --accent-hover: #27272a;
+      --danger: #ef4444;
+      --highlight: #f4f4f5;
+      --radius: 6px;
+      --radius-sm: 4px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+      --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.08), 0 4px 8px rgba(0,0,0,0.04);
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; display: flex; height: 100vh; background-color: var(--bg); font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; overflow: hidden; color: var(--text); font-size: 13px; -webkit-font-smoothing: antialiased; }
+
+    /* ===== 네비게이션 탭 ===== */
+    .tab-nav { width: 48px; display: flex; flex-direction: column; padding-top: 12px; z-index: 10; background-color: var(--surface); border-right: 1px solid var(--border); gap: 2px; padding-left: 6px; padding-right: 6px; }
+    .tab { width: 36px; height: 36px; cursor: pointer; border: none; border-radius: var(--radius-sm); transition: all 0.15s; font-size: 14px; display: flex; justify-content: center; align-items: center; background: transparent; color: var(--text-3); }
+    .tab:hover { color: var(--text); background-color: var(--highlight); }
+    .tab.active { color: var(--surface); background-color: var(--accent); }
+
+    /* ===== 사이드바 ===== */
+    .sidebar { position: absolute; left: 48px; top: 0; bottom: 0; width: 280px; padding: 18px; box-sizing: border-box; transform: translateX(-100%); transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); z-index: 5; overflow-y: auto; background-color: var(--surface); border-right: 1px solid var(--border); }
+    .sidebar.active { transform: translateX(0); }
+    .sidebar::-webkit-scrollbar { width: 6px; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+
+    h3 { margin: 0 0 12px; color: var(--text); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+    .section { padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+    .section:last-child { border-bottom: none; margin-bottom: 0; }
+
+    /* ===== 캔버스 ===== */
+    .main-canvas-wrapper { flex-grow: 1; padding: 16px; display: flex; justify-content: flex-end; align-items: center; overflow: hidden; position: relative; z-index: 1; }
+    .workspace { display: flex; flex-direction: column; width: calc(100vw - 376px); height: 100%; position: relative; }
+    .canvas-box { width: 100%; height: 100%; background-color: var(--surface); border-radius: 8px; position: relative; overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--border); }
+
+    /* ===== 좌측 툴바 ===== */
+    .left-toolbar { position: absolute; left: -50px; bottom: 16px; display: flex; flex-direction: column; gap: 4px; z-index: 2; }
+    .toolbar-btn { width: 38px; height: 38px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--border); cursor: pointer; font-weight: 500; font-size: 12px; box-shadow: var(--shadow-sm); display: flex; justify-content: center; align-items: center; color: var(--text-2); transition: all 0.15s; }
+    .toolbar-btn:hover { background: var(--highlight); color: var(--text); border-color: var(--border-strong); }
+    .toolbar-btn:active { transform: scale(0.96); }
+    .btn-save { background: var(--accent); color: var(--surface); border-color: var(--accent); margin-bottom: 6px; font-size: 13px; }
+    .btn-save:hover { background: var(--accent-hover); color: var(--surface); }
+
+    /* ===== 우측 상단 툴바 ===== */
+    .right-toolbar { position: absolute; right: 12px; top: 12px; display: flex; gap: 4px; z-index: 2; }
+    .undo-btn { width: 32px; height: 32px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--border); cursor: pointer; font-size: 13px; color: var(--text-2); box-shadow: var(--shadow-sm); transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+    .undo-btn:hover { background: var(--highlight); color: var(--text); border-color: var(--border-strong); }
+
+    /* ===== 빈 슬롯 (포켓몬 추가) ===== */
+    .poke-slot.empty { background: var(--surface-2); color: var(--text-2); justify-content: center; font-weight: 500; border: 1px dashed var(--border-strong); cursor: pointer; padding: 14px; border-radius: var(--radius); text-align: center; margin-bottom: 12px; transition: all 0.15s; font-size: 13px; }
+    .poke-slot.empty:hover { background: var(--surface); border-color: var(--accent); color: var(--text); }
+
+    /* ===== 레이어 아이템 ===== */
+    .hint { font-size: 11px; color: var(--text-3); margin: 0 0 8px; line-height: 1.5; }
+    .layer-item { background: var(--surface); border: 1px solid var(--border); padding: 7px 8px; border-radius: var(--radius); margin-bottom: 5px; display: flex; align-items: center; cursor: pointer; transition: all 0.15s; }
+    .layer-item:hover { border-color: var(--border-strong); background: var(--surface-2); }
+    .layer-item.dragging { opacity: 0.4; }
+    .layer-item.active-layer { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 1px var(--accent); }
+
+    .drag-handle { cursor: grab; font-size: 14px; color: var(--text-3); margin-right: 6px; padding: 0 2px; user-select: none; }
+    .drag-handle:active { cursor: grabbing; }
+    .layer-img { width: 28px; height: 28px; object-fit: contain; margin-right: 8px; background: var(--surface-2); border-radius: var(--radius-sm); border: 1px solid var(--border); }
+    .layer-name { flex-grow: 1; font-weight: 500; font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .remove-btn { background: transparent; color: var(--text-3); border: none; border-radius: var(--radius-sm); width: 22px; height: 22px; cursor: pointer; font-size: 11px; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+    .remove-btn:hover { background: var(--danger); color: white; }
+
+    /* ===== 입력 폼 ===== */
+    .input-group { margin-bottom: 10px; }
+    .input-group:last-child { margin-bottom: 0; }
+    .input-group label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 11px; color: var(--text-2); }
+    .input-group input[type="text"], .input-group input[type="number"] { width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--radius-sm); outline: none; font-family: inherit; font-size: 12px; color: var(--text); background: var(--surface); transition: border-color 0.15s; }
+    .input-group input[type="text"]:focus, .input-group input[type="number"]:focus { border-color: var(--accent); }
+    .input-group input[type="file"] { width: 100%; font-size: 11px; color: var(--text-2); }
+    .input-group input[type="file"]::file-selector-button { padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-size: 11px; cursor: pointer; margin-right: 8px; font-family: inherit; color: var(--text); transition: all 0.15s; }
+    .input-group input[type="file"]::file-selector-button:hover { background: var(--highlight); border-color: var(--border-strong); }
+
+    .color-row { display: flex; gap: 5px; align-items: center; }
+    .color-row input[type="color"] { flex-grow: 1; height: 32px; border: 1px solid var(--border); cursor: pointer; border-radius: var(--radius-sm); padding: 2px; background: var(--surface); }
+    .apply-btn { padding: 0 12px; height: 32px; cursor: pointer; background: var(--accent); color: var(--surface); border: none; border-radius: var(--radius-sm); font-weight: 500; font-size: 11px; font-family: inherit; transition: background 0.15s; }
+    .apply-btn:hover { background: var(--accent-hover); }
+    .reset-btn { width: 100%; padding: 8px; background-color: var(--surface); color: var(--text-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-weight: 500; font-size: 12px; font-family: inherit; transition: all 0.15s; }
+    .reset-btn:hover { background: var(--surface-2); color: var(--danger); border-color: var(--danger); }
+
+    /* 외곽선 슬라이더 */
+    input[type="range"] { -webkit-appearance: none; appearance: none; height: 4px; background: var(--border); border-radius: 2px; outline: none; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; background: var(--accent); border-radius: 50%; cursor: pointer; border: 2px solid var(--surface); box-shadow: var(--shadow-sm); }
+    input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; background: var(--accent); border-radius: 50%; cursor: pointer; border: 2px solid var(--surface); box-shadow: var(--shadow-sm); }
+
+    /* ===== 모달 ===== */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(24,24,27,0.4); z-index: 100; justify-content: center; align-items: flex-start; padding-top: 12vh; backdrop-filter: blur(4px); }
+    .modal-overlay.active { display: flex; }
+    .modal-content { background: var(--surface); width: 520px; max-width: 90vw; padding: 22px; border-radius: 10px; position: relative; box-shadow: var(--shadow-lg); border: 1px solid var(--border); }
+    .modal-close { position: absolute; top: 14px; right: 14px; cursor: pointer; font-size: 14px; color: var(--text-3); transition: color 0.15s; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); }
+    .modal-close:hover { color: var(--text); background: var(--highlight); }
+    .modal-title { margin: 0 0 14px; font-size: 14px; font-weight: 600; color: var(--text); border: none; }
+    .search-container { position: relative; width: 100%; }
+    .search-bar { width: 100%; padding: 10px 12px; box-sizing: border-box; border-radius: var(--radius); border: 1px solid var(--border); font-size: 13px; outline: none; transition: border-color 0.15s; font-family: inherit; color: var(--text); }
+    .search-bar:focus { border-color: var(--accent); }
+    .shiny-toggle-label { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; font-weight: 500; cursor: pointer; color: var(--text-2); user-select: none; }
+    .shiny-toggle-label input { cursor: pointer; accent-color: var(--accent); }
+    .autocomplete-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); max-height: 240px; overflow-y: auto; z-index: 1000; margin: 0; padding: 4px; list-style: none; border-radius: var(--radius); box-shadow: var(--shadow); display: none; }
+    .autocomplete-item { padding: 8px 10px; cursor: pointer; font-size: 13px; transition: background 0.1s; border-radius: var(--radius-sm); color: var(--text); }
+    .autocomplete-item:hover, .autocomplete-item.active { background: var(--highlight); color: var(--text); }
+    .autocomplete-item .match { color: var(--accent); font-weight: 600; }
+
+    /* 검색 결과 */
+    .search-results { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 14px; max-height: 280px; overflow-y: auto; }
+    .result-item { background: var(--surface); border-radius: var(--radius); padding: 10px; display: flex; align-items: center; cursor: pointer; border: 1px solid var(--border); transition: all 0.15s; }
+    .result-item:hover { border-color: var(--accent); background: var(--surface-2); }
+    .result-img { width: 48px; height: 48px; object-fit: contain; margin-right: 12px; }
+    .result-info { flex-grow: 1; }
+    .result-name { font-weight: 600; font-size: 13px; margin-bottom: 2px; color: var(--text); }
+    .result-name.shiny { color: #b8860b; }
+    .result-height { font-size: 11px; color: var(--text-3); }
+    .loading-text { text-align: center; color: var(--text-3); padding: 16px; font-weight: 500; font-size: 12px; }
+
+    hr { border: 0; border-top: 1px solid var(--border); margin: 0; }
+  </style>
+</head>
+<body>
+
+<nav class="tab-nav">
+  <button class="tab" id="tab-1" onclick="toggleSidebar('sidebar1', this)" title="포켓몬 및 레이어 관리"><i class="fa-solid fa-layer-group"></i></button>
+  <button class="tab" id="tab-2" onclick="toggleSidebar('sidebar2', this)" title="캐릭터 및 배경 설정"><i class="fa-solid fa-sliders"></i></button>
+</nav>
+
+<aside id="sidebar1" class="sidebar">
+  <div class="section">
+    <h3>레이어</h3>
+    <div class="poke-slot empty" onclick="openModal()">+ 포켓몬 추가</div>
+    <p class="hint">클릭: 선택 · 우클릭: 좌우반전 · 드래그: 순서변경</p>
+    <div id="layer-list"></div>
+  </div>
+</aside>
+
+<aside id="sidebar2" class="sidebar">
+  <div class="section">
+    <h3>캐릭터</h3>
+    <div class="input-group"><label>이름</label><input type="text" id="char-name" placeholder="내 캐릭터"></div>
+    <div class="input-group"><label>키 (cm)</label><input type="number" id="char-height" placeholder="180"></div>
+    <div class="input-group"><label>일러스트</label><input type="file" id="char-upload" accept="image/png, image/jpeg"></div>
+  </div>
+
+  <div class="section">
+    <h3>외곽선</h3>
+    <p class="hint">객체를 먼저 선택하세요.</p>
+    <div class="input-group">
+      <div style="display: flex; gap: 5px; align-items: center;">
+        <input type="color" id="outline-color" value="#ffeb3b" title="외곽선 색상" style="width:32px; height:32px; padding:2px; border:1px solid var(--border); border-radius:var(--radius-sm); cursor:pointer; background:var(--surface);">
+        <input type="range" id="outline-width" min="0" max="40" value="15" title="두께 조절" style="flex-grow:1; cursor:pointer;">
+        <button id="apply-outline-btn" class="apply-btn" style="height:32px;">적용</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>프로젝트</h3>
+    <p class="hint">자동 저장 중 · 새로고침해도 복원돼요</p>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px;">
+      <button id="export-json-btn" class="apply-btn" style="background:var(--surface); color:var(--text); border:1px solid var(--border);">📤 내보내기</button>
+      <button id="import-json-btn" class="apply-btn" style="background:var(--surface); color:var(--text); border:1px solid var(--border);">📥 불러오기</button>
+    </div>
+    <input type="file" id="import-json-input" accept=".json" style="display:none;">
+    <button id="clear-project-btn" class="reset-btn">새 프로젝트 (전체 비우기)</button>
+    <p id="autosave-status" class="hint" style="margin-top:8px; color:var(--text-3);">●  대기 중</p>
+  </div>
+
+  <div class="section">
+    <h3>배경</h3>
+    <div class="input-group">
+      <label>단색</label>
+      <div class="color-row">
+        <input type="color" id="bg-color-picker" value="#ffffff">
+        <button id="apply-solid-btn" class="apply-btn">적용</button>
+      </div>
+    </div>
+    <div class="input-group">
+      <label>그라데이션 (하단 → 상단)</label>
+      <div class="color-row">
+        <input type="color" id="grad-color-bottom" value="#ffffff" title="하단">
+        <input type="color" id="grad-color-top" value="#87CEEB" title="상단">
+        <button id="apply-grad-btn" class="apply-btn">적용</button>
+      </div>
+    </div>
+    <div class="input-group"><label>이미지</label><input type="file" id="bg-upload" accept="image/*"></div>
+    <button id="reset-bg-btn" class="reset-btn">배경 초기화</button>
+  </div>
+</aside>
+
+<main class="main-canvas-wrapper">
+  <div class="workspace">
+    <div class="left-toolbar">
+      <button class="toolbar-btn btn-save" onclick="saveAsPNG()" title="저장"><i class="fa-solid fa-download"></i></button>
+      <button class="toolbar-btn" onclick="setZoom(3)" title="3배 확대">3×</button>
+      <button class="toolbar-btn" onclick="setZoom(2)" title="2배 확대">2×</button>
+      <button class="toolbar-btn" onclick="setZoom(1)" title="원래 크기">1×</button>
+    </div>
+
+    <div class="canvas-box" id="canvas-container">
+      <div class="right-toolbar">
+        <button class="undo-btn" onclick="undo()" title="실행 취소"><i class="fa-solid fa-rotate-left"></i></button>
+        <button class="undo-btn" onclick="redo()" title="다시 실행"><i class="fa-solid fa-rotate-right"></i></button>
+      </div>
+      <canvas id="mainCanvas"></canvas>
+    </div>
+  </div>
+</main>
+
+<div id="pokemonModal" class="modal-overlay" onclick="closeModalOnOutsideClick(event)">
+  <div class="modal-content">
+    <span class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></span>
+    <h3 class="modal-title">포켓몬 검색</h3>
+    <div class="search-container">
+      <input type="text" class="search-bar" id="searchInput" placeholder="이름 또는 초성 입력 (예: ㅍ, 피카츄)">
+      <label class="shiny-toggle-label">
+        <input type="checkbox" id="shiny-toggle"> ✨ 이로치(Shiny)로 불러오기
+      </label>
+      <ul id="autocompleteList" class="autocomplete-list"></ul>
+    </div>
+    <div class="search-results" id="searchResults">
+      <div class="loading-text" id="dictLoadingMsg">사전 데이터를 불러오는 중...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let canvas;
+  let historyStack = [];
+  let historyIndex = -1;
+  let isRestoring = false;
+
+  window.onload = function() {
+    const container = document.getElementById('canvas-container');
+
+    canvas = new fabric.Canvas('mainCanvas', {
+      width: container.clientWidth,
+      height: container.clientHeight,
+      backgroundColor: '#ffffff',
+      preserveObjectStacking: true
+    });
+
+    canvas.imageSmoothingEnabled = true;
+
+    window.addEventListener('resize', () => {
+      canvas.setWidth(container.clientWidth);
+      canvas.setHeight(container.clientHeight);
+      canvas.renderAll();
+    });
+
+    setupLayerDragAndDrop();
+
+    canvas.on('mouse:wheel', function(opt) {
+      var delta = opt.e.deltaY;
+      var zoom = canvas.getZoom();
+      zoom *= 0.999 ** delta;
+      if (zoom > 10) zoom = 10;
+      if (zoom < 0.1) zoom = 0.1;
+      canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+      opt.e.preventDefault();
+      opt.e.stopPropagation();
+    });
+
+    canvas.on('mouse:down', function(opt) {
+      var evt = opt.e;
+      if (!opt.target || evt.altKey === true) {
+        this.isDragging = true;
+        this.selection = false;
+        this.lastPosX = evt.clientX;
+        this.lastPosY = evt.clientY;
+      }
+      highlightLayer(opt.target);
+    });
+
+    canvas.on('mouse:move', function(opt) {
+      if (this.isDragging) {
+        var e = opt.e;
+        var vpt = this.viewportTransform;
+        vpt[4] += e.clientX - this.lastPosX;
+        vpt[5] += e.clientY - this.lastPosY;
+        this.requestRenderAll();
+        this.lastPosX = e.clientX;
+        this.lastPosY = e.clientY;
+      }
+    });
+
+    canvas.on('mouse:up', function(opt) {
+      this.setViewportTransform(this.viewportTransform);
+      this.isDragging = false;
+      this.selection = true;
+    });
+
+    canvas.on('object:modified', () => saveHistory());
+    saveHistory();
+  };
+
+  // --- 히스토리 ---
+  const MAX_HISTORY = 20;  // 메모리 절약을 위해 20개로 제한
+  let autosaveTimer = null;
+
+  function saveHistory() {
+    if (isRestoring) return;
+    const json = JSON.stringify(canvas.toJSON(['id', 'customName', 'imgUrl']));
+    historyStack = historyStack.slice(0, historyIndex + 1);
+    historyStack.push(json);
+
+    // 20개 초과 시 가장 오래된 것부터 제거
+    if (historyStack.length > MAX_HISTORY) {
+      const overflow = historyStack.length - MAX_HISTORY;
+      historyStack.splice(0, overflow);
+      historyIndex -= overflow;
+    }
+    historyIndex = historyStack.length - 1;
+
+    // 자동저장 트리거 (디바운싱: 1.5초 후 1회만)
+    scheduleAutosave();
+  }
+
+  function undo() {
+    if (historyIndex > 0) {
+      isRestoring = true;
+      historyIndex--;
+      canvas.loadFromJSON(historyStack[historyIndex], function() {
+        canvas.renderAll();
+        rebuildLayersFromCanvas();
+        isRestoring = false;
+      });
+    }
+  }
+
+  function redo() {
+    if (historyIndex < historyStack.length - 1) {
+      isRestoring = true;
+      historyIndex++;
+      canvas.loadFromJSON(historyStack[historyIndex], function() {
+        canvas.renderAll();
+        rebuildLayersFromCanvas();
+        isRestoring = false;
+      });
+    }
+  }
+
+  // --- 줌 ---
+  function setZoom(level) {
+    const center = new fabric.Point(canvas.width / 2, canvas.height / 2);
+    canvas.zoomToPoint(center, level);
+  }
+
+  function autoFitObject(objScaledHeight) {
+    const currentZoom = canvas.getZoom();
+    const visibleHeight = canvas.height / currentZoom;
+    if (objScaledHeight > visibleHeight * 0.9) {
+      const newZoom = (canvas.height * 0.9) / objScaledHeight;
+      setZoom(newZoom);
+    }
+  }
+
+  // --- 외곽선 ---
+  document.getElementById('apply-outline-btn').addEventListener('click', function() {
+    const activeObj = canvas.getActiveObject();
+    if (!activeObj || !activeObj.isType('image')) {
+      alert("외곽선을 적용할 객체를 먼저 클릭해주세요!");
+      return;
+    }
+    const color = document.getElementById('outline-color').value;
+    const width = parseInt(document.getElementById('outline-width').value, 10);
+
+    if (width === 0) {
+      activeObj.set('shadow', null);
+    } else {
+      activeObj.set('shadow', new fabric.Shadow({ color: color, blur: width, offsetX: 0, offsetY: 0 }));
+    }
+
+    canvas.renderAll();
+    saveHistory();
+  });
+
+
+  document.getElementById('bg-upload').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // 이전 배경 이미지 blob URL 해제
+    const prevBg = canvas.backgroundImage;
+    if (prevBg && prevBg._element && prevBg._element.src && prevBg._element.src.startsWith('blob:')) {
+      try { URL.revokeObjectURL(prevBg._element.src); } catch (e) {}
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    fabric.Image.fromURL(objectUrl, function(img) {
+      if(!img) return;
+      const canvasRatio = canvas.width / canvas.height;
+      const imgRatio = img.width / img.height;
+      let scale = canvasRatio > imgRatio ? canvas.width / img.width : canvas.height / img.height;
+      canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+        scaleX: scale, scaleY: scale, originX: 'left', originY: 'top', left: 0, top: 0
+      });
+      saveHistory();
+    });
+    e.target.value = '';
+  });
+
+  document.getElementById('char-upload').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const nameInput = document.getElementById('char-name').value;
+    const displayName = nameInput ? nameInput : '내 캐릭터';
+    const heightInput = document.getElementById('char-height').value;
+    const charHeightCm = heightInput ? parseFloat(heightInput) : 180;
+
+    const targetPixelHeight = charHeightCm * 3.5;
+    const objectUrl = URL.createObjectURL(file);
+    const objId = 'obj_' + Date.now();
+
+    trimTransparentPixels(objectUrl, function(trimmedImgUrl) {
+      // 트리밍된 dataURL을 받았으니 원본 blob은 더 이상 필요 없음 → 메모리 해제
+      try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+
+      fabric.Image.fromURL(trimmedImgUrl, function(img) {
+        if (!img) return;
+        const scale = targetPixelHeight / img.height;
+        img.set({
+          id: objId, customName: displayName, imgUrl: trimmedImgUrl,
+          left: (canvas.width / 2) - ((img.width * scale) / 2),
+          top: (canvas.height / 2) - ((img.height * scale) / 2),
+          scaleX: scale, scaleY: scale,
+          transparentCorners: false, cornerColor: '#18181b', cornerSize: 8,
+          objectCaching: false
+        });
+
+        canvas.add(img);
+        canvas.setActiveObject(img);
+        autoFitObject(img.height * scale);
+
+        addLayerItemToDOM(displayName, trimmedImgUrl, objId);
+        saveHistory();
+      });
+    });
+    e.target.value = '';
+  });
+
+  // --- 배경 컨트롤 ---
+  document.getElementById('apply-solid-btn').addEventListener('click', function() {
+    canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
+    canvas.backgroundColor = document.getElementById('bg-color-picker').value;
+    canvas.renderAll();
+    saveHistory();
+  });
+
+  document.getElementById('apply-grad-btn').addEventListener('click', function() {
+    const colorBottom = document.getElementById('grad-color-bottom').value;
+    const colorTop = document.getElementById('grad-color-top').value;
+    const gradient = new fabric.Gradient({
+      type: 'linear', gradientUnits: 'pixels',
+      coords: { x1: 0, y1: canvas.height, x2: 0, y2: 0 },
+      colorStops: [ { offset: 0, color: colorBottom }, { offset: 1, color: colorTop } ]
+    });
+    canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
+    canvas.backgroundColor = gradient;
+    canvas.renderAll();
+    saveHistory();
+  });
+
+  document.getElementById('reset-bg-btn').addEventListener('click', function() {
+    canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
+    canvas.backgroundColor = '#ffffff';
+    document.getElementById('bg-color-picker').value = '#ffffff';
+    document.getElementById('bg-upload').value = '';
+    canvas.renderAll();
+    saveHistory();
+  });
+
+  // --- UI 토글 및 모달 ---
+  function toggleSidebar(id, tabElement) {
+    const target = document.getElementById(id);
+    const isActive = target.classList.contains('active');
+    document.querySelectorAll('.sidebar').forEach(sb => sb.classList.remove('active'));
+    if (!isActive) target.classList.add('active');
+
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    if (!isActive) tabElement.classList.add('active');
+  }
+
+  function openModal() { document.getElementById('pokemonModal').classList.add('active'); document.getElementById('searchInput').focus(); }
+  function closeModal() { document.getElementById('pokemonModal').classList.remove('active'); document.getElementById('searchInput').value = ''; document.getElementById('autocompleteList').style.display = 'none'; document.getElementById('searchResults').innerHTML = ''; }
+  function closeModalOnOutsideClick(event) { if (event.target.classList.contains('modal-overlay')) closeModal(); }
+
+  const CHO_HANGUL = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+  function getChoSung(word) { let r=""; for(let i=0;i<word.length;i++){const c=word.charCodeAt(i)-44032; if(c>-1&&c<11172)r+=CHO_HANGUL[Math.floor(c/588)]; else r+=word.charAt(i);} return r; }
+
+  let pokemonDict = [];
+
+  // ============================================
+  // 포켓몬 폼 매핑 테이블 (한국 공식 명칭 기준)
+  // ============================================
+  const FORM_MAP = {
+    // 메테노 (774): 7색 × 2형태
+    774: {
+      'red-meteor':    '빨강 유성 형태', 'orange-meteor': '주황 유성 형태',
+      'yellow-meteor': '노랑 유성 형태', 'green-meteor':  '초록 유성 형태',
+      'blue-meteor':   '파랑 유성 형태', 'indigo-meteor': '남색 유성 형태',
+      'violet-meteor': '보라 유성 형태',
+      'red':    '빨강 코어', 'orange': '주황 코어',
+      'yellow': '노랑 코어', 'green':  '초록 코어',
+      'blue':   '파랑 코어', 'indigo': '남색 코어',
+      'violet': '보라 코어'
+    },
+    // 싸리용 (978)
+    978: { 'curly': '말린 모습', 'droopy': '늘어진 모습', 'stretchy': '쭉뻗은 모습' },
+    // 토네로스/볼트로스/랜드로스/러브로스
+    641: { 'incarnate': '화신폼', 'therian': '영물폼' },
+    642: { 'incarnate': '화신폼', 'therian': '영물폼' },
+    645: { 'incarnate': '화신폼', 'therian': '영물폼' },
+    905: { 'incarnate': '화신폼', 'therian': '영물폼' },
+    // 퍼퓨돈 (916) — 암수 외형 다름
+    916: { 'male': '수컷', 'female': '암컷' },
+    // 파밀리쥐 (925)
+    925: { 'family-of-four': '네 식구', 'family-of-three': '세 식구' },
+    // 노고고치 (982)
+    982: { 'two-segment': '두마디 폼', 'three-segment': '세마디 폼' },
+    // 우라오스 (892)
+    892: { 'single-strike': '일격의 태세', 'rapid-strike': '연격의 태세' },
+    // 케르디오 (647)
+    647: { 'ordinary': '평상시의 모습', 'resolute': '각오의 모습' },
+    // 메로엣타 (648)
+    648: { 'aria': '보이스폼', 'pirouette': '스텝폼' },
+    // 루가루암 (745)
+    745: { 'midday': '한낮의 모습', 'midnight': '한밤의 모습', 'dusk': '황혼의 모습' },
+    // 춤추새 (741)
+    741: { 'baile': '이글이글 스타일', 'pom-pom': '팡파레 스타일', 'pau': '훌라훌라 스타일', 'sensu': '느릿느릿 스타일' },
+    // 약어리 (746)
+    746: { 'solo': '단독의 모습', 'school': '군집의 모습' },
+    // 스트린더(윽우지) (849)
+    849: { 'amped': '하이 폼', 'low-key': '로 폼' },
+    // 버드렉스 (898)
+    898: { 'ice': '백마 라이더', 'shadow': '흑마 라이더' },
+    // 자시안 (888)
+    888: { 'hero': '용사 모습', 'crowned': '검의 왕' },
+    // 자마젠타 (889)
+    889: { 'hero': '용사 모습', 'crowned': '방패의 왕' },
+    // 무한다이노 (890)
+    890: { 'eternamax': '무한다이맥스' },
+    // 자루도 (893)
+    893: { 'dada': '아빠 모습' },
+    // 테오키스 (386)
+    386: { 'normal': '노말폼', 'attack': '어택폼', 'defense': '디펜스폼', 'speed': '스피드폼' },
+    // 기라티나 (487)
+    487: { 'altered': '어나더폼', 'origin': '오리진폼' },
+    // 킬가르도 (681)
+    681: { 'shield': '실드폼', 'blade': '블레이드폼' },
+    // 모르페코 (877)
+    877: { 'full-belly': '배부른 모양', 'hangry': '배고픈 모양' },
+    // 큐레무 (646)
+    646: { 'white': '화이트큐레무', 'black': '블랙큐레무' },
+    // 마자용 (550)
+    550: { 'red-striped': '빨간 줄무늬의 모습', 'blue-striped': '파란 줄무늬의 모습', 'white-striped': '흰 줄무늬의 모습' },
+    // 그우린차 (1013)
+    1013: { 'unremarkable': '범작의 모습', 'masterpiece': '걸작의 모습' },
+    // 차데스 (1012)
+    1012: { 'counterfeit': '위작품', 'artisan': '정품' },
+    // 포트데스 (855) — 가품/진품
+    855: { 'phony': '가품의 모습', 'antique': '진품의 모습' },
+    // 데인차 (854)
+    854: { 'phony': '가품의 모습', 'antique': '진품의 모습' },
+    // 트리미앙 (676)
+    676: {
+      'natural': '내추럴 컷', 'heart': '하트 컷', 'star': '스타 컷', 'diamond': '다이아 컷',
+      'debutante': '레이디 컷', 'matron': '마담 컷', 'dandy': '젠틀 컷', 'la-reine': '키링 컷',
+      'kabuki': '가부키 컷', 'pharaoh': '파라오 컷'
+    },
+    // 후파 (720)
+    720: { 'confined': '굴레에 얽매인 모습', 'unbound': '굴레를 벗어난 모습' },
+    // 로토무 (479)
+    479: { 'normal': '노말폼', 'heat': '히트로토무', 'wash': '워시로토무', 'frost': '프로스트로토무', 'fan': '스핀로토무', 'mow': '커트로토무' },
+    // 셰이미 (492)
+    492: { 'land': '랜드폼', 'sky': '스카이폼' },
+    // 도롱충이 (412) — 폼체인지
+    412: { 'plant': '초목도롱', 'sandy': '모래땅도롱', 'trash': '슈레도롱' },
+    // 도롱마담 (413)
+    413: { 'plant': '초목도롱', 'sandy': '모래땅도롱', 'trash': '슈레도롱' },
+    // 깝질무 (422)
+    422: { 'east': '동쪽바다의 모습', 'west': '서쪽바다의 모습' },
+    // 트리토돈 (423)
+    423: { 'east': '동쪽바다의 모습', 'west': '서쪽바다의 모습' },
+    // 시비꼬 (931)
+    931: { 'green-plumage': '초록깃 모습', 'blue-plumage': '파랑깃 모습', 'yellow-plumage': '노랑깃 모습', 'white-plumage': '하양깃 모습' },
+    // 돌핀맨 (964)
+    964: { 'zero': '나이브폼', 'hero': '마이티폼' },
+    // 빙큐보 (875)
+    875: { 'ice-face': '아이스 페이스', 'noice-face': '나이스 페이스' },
+    // 따라큐 (778)
+    778: { 'disguised': '본모습', 'busted': '들킨 모습' },
+    // 플라엣테 (670) — 영원꽃 폼만 별도 라벨, 색은 cosmetic으로
+    670: {
+      'red': '빨간 꽃', 'yellow': '노란 꽃', 'orange': '주황 꽃', 'blue': '파란 꽃', 'white': '하얀 꽃',
+      'eternal': '영원꽃'
+    },
+    // 플라베베 (669) / 플라이엣 / 플라쥬레 (671) — 꽃 색깔
+    669: { 'red': '빨간 꽃', 'yellow': '노란 꽃', 'orange': '주황 꽃', 'blue': '파란 꽃', 'white': '하얀 꽃' },
+    671: { 'red': '빨간 꽃', 'yellow': '노란 꽃', 'orange': '주황 꽃', 'blue': '파란 꽃', 'white': '하얀 꽃' }
+    // 마휘핑(869)은 외형 폼이라 COSMETIC_FORM_MAP에서 처리
+  };
+
+  // 외형만 다른 폼 (스탯/타입 동일) — pokemon_v2_pokemonform 기준
+  const COSMETIC_FORM_MAP = {
+    // 마휘핑 (869) — 9크림 × 7데코 = 63종 (거다이맥스는 별도 variety라 자동 처리)
+    869: (() => {
+      const CREAMS = {
+        'vanilla-cream':  '밀키바닐라',
+        'ruby-cream':     '밀키루비',
+        'matcha-cream':   '밀키맛차',
+        'mint-cream':     '밀키민트',
+        'lemon-cream':    '밀키레몬',
+        'salted-cream':   '밀키솔트',
+        'ruby-swirl':     '루비믹스',
+        'caramel-swirl':  '캐러멜믹스',
+        'rainbow-swirl':  '레인보우믹스'
+      };
+      const SWEETS = {
+        'strawberry-sweet': '딸기',
+        'berry-sweet':      '베리',
+        'love-sweet':       '하트',
+        'star-sweet':       '별',
+        'clover-sweet':     '클로버',
+        'flower-sweet':     '꽃',
+        'ribbon-sweet':     '리본'
+      };
+      const map = {};
+      Object.entries(CREAMS).forEach(([cKey, cKr]) => {
+        Object.entries(SWEETS).forEach(([sKey, sKr]) => {
+          map[`${cKey}-${sKey}`] = `${cKr}/${sKr}`;
+        });
+      });
+      return map;
+    })(),
+    // 비비용 (666) — 무늬 20종
+    666: {
+      'meadow':       '플라워 무늬',     'icy-snow':    '얼음 무늬',
+      'polar':        '극지 무늬',       'tundra':      '눈 무늬',
+      'continental':  '대륙 무늬',       'garden':      '정원 무늬',
+      'elegant':      '귀공자 무늬',     'modern':      '하이테크 무늬',
+      'marine':       '바다 무늬',       'archipelago': '군도 무늬',
+      'high-plains':  '대지 무늬',       'sandstorm':   '모래 무늬',
+      'river':        '강 무늬',         'monsoon':     '스콜 무늬',
+      'savanna':      '사바나 무늬',     'sun':         '태양 무늬',
+      'ocean':        '대양 무늬',       'jungle':      '정글 무늬',
+      'fancy':        '팬시 무늬',       'poke-ball':   '몬스터볼 무늬'
+    },
+    // 안농(언노운) (201) — A-Z + ! ?
+    201: (() => {
+      const map = {};
+      'abcdefghijklmnopqrstuvwxyz'.split('').forEach(c => { map[c] = `${c.toUpperCase()} 모양`; });
+      map['exclamation'] = '! 모양';
+      map['question'] = '? 모양';
+      return map;
+    })(),
+    // 사철록 (585) — 4계절
+    585: { 'spring': '봄의 모습', 'summer': '여름의 모습', 'autumn': '가을의 모습', 'winter': '겨울의 모습' },
+    // 바라철록 (586)
+    586: { 'spring': '봄의 모습', 'summer': '여름의 모습', 'autumn': '가을의 모습', 'winter': '겨울의 모습' },
+    // 호박몬 (710) — 4가지 크기
+    710: { 'average': '보통 사이즈', 'small': '작은 사이즈', 'large': '큰 사이즈', 'super': '특대 사이즈' },
+    // 펌킨인 (711)
+    711: { 'average': '보통 사이즈', 'small': '작은 사이즈', 'large': '큰 사이즈', 'super': '특대 사이즈' }
+  };
+
+
+  async function initDictionary() {
+    try {
+      const res = await fetch('https://beta.pokeapi.co/graphql/v1beta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `query {
+            pokemon_v2_pokemon(limit: 15000) {
+              id name is_default pokemon_species_id
+              pokemon_v2_pokemonforms { id name is_default form_name }
+            }
+            pokemon_v2_pokemonspeciesname(where: {language_id: {_eq: 3}}, limit: 2000) { pokemon_species_id name }
+          }`
+        })
+      });
+      const data = await res.json();
+
+      if (!data.data) {
+        document.getElementById('dictLoadingMsg').innerText = "로딩 실패!";
+        return;
+      }
+
+      const speciesNameMap = {};
+      data.data.pokemon_v2_pokemonspeciesname.forEach(s => {
+        speciesNameMap[s.pokemon_species_id] = s.name;
+      });
+
+      // --- 1단계: 메인 variety 폼 처리 (스탯/타입 다른 폼) ---
+      data.data.pokemon_v2_pokemon.forEach(p => {
+        const baseName = speciesNameMap[p.pokemon_species_id];
+        if (!baseName) return;
+
+        const speciesId = p.pokemon_species_id;
+        const engName = p.name;
+        // species prefix 제거 (예: 'minior-red-meteor' -> 'red-meteor')
+        // 기본 폼은 species 이름과 동일 (예: 'pikachu' -> '')
+        let suffix = '';
+        const speciesPrefix = engName.split('-')[0];
+        if (engName.includes('-')) {
+          suffix = engName.substring(engName.indexOf('-') + 1);
+        }
+
+        let krName = baseName;
+        const formMap = FORM_MAP[speciesId];
+
+        if (formMap) {
+          // 매핑이 있는 종은 매핑대로 처리
+          if (suffix === '' || !formMap[suffix]) {
+            // 기본 폼인데 매핑에 라벨이 정의 안 됐으면 → 일반 폼으로 통과
+            if (suffix === '') {
+              // 라벨 없이 그대로
+            } else {
+              return; // 매핑에 없는 변종은 제외 (예: pikachu-cosplay 등)
+            }
+          } else {
+            krName = `${baseName} (${formMap[suffix]})`;
+          }
+        } else {
+          // 매핑이 없는 종 → 기존 규칙으로 폴백
+          if (engName.includes('-female') || engName.endsWith('-f')) {
+            krName += ' (암컷)';
+          } else if (!p.is_default) {
+            if (engName.includes('-alola')) krName += ' (알로라)';
+            else if (engName.includes('-galar')) krName += ' (가라르)';
+            else if (engName.includes('-hisui')) krName += ' (히스이)';
+            else if (engName.includes('-paldea')) krName += ' (팔데아)';
+            else if (engName.includes('-mega-x')) krName += ' (메가진화 X)';
+            else if (engName.includes('-mega-y')) krName += ' (메가진화 Y)';
+            else if (engName.includes('-mega')) krName += ' (메가진화)';
+            else if (engName.includes('-gmax')) krName += ' (거다이맥스)';
+            else return;
+          }
+        }
+
+        pokemonDict.push({
+          id: p.id,
+          speciesId: speciesId,
+          engName: engName,
+          name: krName,
+          chosung: getChoSung(krName)
+        });
+      });
+
+      // --- 2단계: 외형(cosmetic) 폼 처리 ---
+      // pokemon_v2_pokemonforms에서 form_name으로 매칭
+      data.data.pokemon_v2_pokemon.forEach(p => {
+        const cosmeticMap = COSMETIC_FORM_MAP[p.pokemon_species_id];
+        if (!cosmeticMap) return;
+
+        const baseName = speciesNameMap[p.pokemon_species_id];
+        if (!baseName) return;
+
+        // 각 form 항목 순회
+        p.pokemon_v2_pokemonforms.forEach(f => {
+          const formKey = f.form_name || f.name.replace(p.name + '-', '');
+          if (!cosmeticMap[formKey]) return;
+          if (f.is_default && formKey === '') return; // 이미 1단계에서 처리됨
+
+          // 이미 dictionary에 같은 engName이 있으면 스킵 (1단계 fallback에서 처리된 경우)
+          if (pokemonDict.some(item => item.engName === f.name)) return;
+
+          const krName = `${baseName} (${cosmeticMap[formKey]})`;
+          pokemonDict.push({
+            id: p.id,
+            speciesId: p.pokemon_species_id,
+            engName: f.name,
+            formId: f.id,
+            name: krName,
+            chosung: getChoSung(krName)
+          });
+        });
+      });
+
+      document.getElementById('dictLoadingMsg').style.display = 'none';
+    } catch (error) {
+      console.error(error);
+      document.getElementById('dictLoadingMsg').innerText = "로딩 실패: " + error.message;
+    }
+  }
+  initDictionary();
+
+  // --- 검색 ---
+  const searchInput = document.getElementById('searchInput');
+  const autocompleteList = document.getElementById('autocompleteList');
+  let currentFocus = -1;
+
+  searchInput.addEventListener('input', (e) => {
+    currentFocus = -1;
+    const query = e.target.value.trim();
+    autocompleteList.innerHTML = '';
+    if (!query) { autocompleteList.style.display = 'none'; return; }
+
+    const isOnlyChosung = /^[ㄱ-ㅎ]+$/.test(query);
+    const matches = pokemonDict.filter(p => isOnlyChosung ? p.chosung.includes(query) : p.name.includes(query)).slice(0, 30);
+
+    if (matches.length > 0) {
+      autocompleteList.style.display = 'block';
+      matches.forEach(match => {
+        const li = document.createElement('li'); li.className = 'autocomplete-item';
+        li.innerHTML = isOnlyChosung ? match.name : match.name.replace(query, `<span class="match">${query}</span>`);
+
+        li.onclick = () => {
+          searchInput.value = match.name;
+          autocompleteList.style.display = 'none';
+          fetchAndShowPokemon(match.id, match.name, match.formId, match.engName, match.speciesId);
+        };
+        autocompleteList.appendChild(li);
+      });
+    } else { autocompleteList.style.display = 'none'; }
+  });
+
+  searchInput.addEventListener('keydown', function(e) {
+    if (e.isComposing || e.keyCode === 229) return;
+    let items = autocompleteList.getElementsByTagName('li');
+    if (autocompleteList.style.display === 'none' || items.length === 0) return;
+
+    if (e.key === 'ArrowDown') { e.preventDefault(); currentFocus++; addActive(items); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); currentFocus--; addActive(items); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (currentFocus > -1 && items[currentFocus]) items[currentFocus].click();
+      else if (items.length > 0) items[0].click();
+    }
+  });
+
+  function addActive(items) { removeActive(items); if (currentFocus >= items.length) currentFocus = 0; if (currentFocus < 0) currentFocus = (items.length - 1); items[currentFocus].classList.add('active'); items[currentFocus].scrollIntoView({ block: 'nearest' }); }
+  function removeActive(items) { for (let i = 0; i < items.length; i++) items[i].classList.remove('active'); }
+
+  async function fetchAndShowPokemon(id, koreanName, formId, engName, speciesId) {
+    const searchResults = document.getElementById('searchResults');
+    searchResults.innerHTML = '<div class="loading-text">이미지를 불러오는 중...</div>';
+    try {
+      const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+      const data = await res.json();
+      const heightCm = data.height * 10;
+      const isShiny = document.getElementById('shiny-toggle').checked;
+
+      let imageUrl;
+
+      // === 마휘핑(869) 특수 처리: Pokémon Showdown 이미지 사용 ===
+      // PokeAPI 공식 일러스트는 모든 폼이 똑같이 "바닐라/딸기" 1개뿐이라 폼별 구분 불가
+      // Showdown은 63종 + 거다이맥스 + 이로치까지 GIF로 호스팅
+      // 단, Showdown은 CORS 헤더가 없어서 images.weserv.nl 프록시로 우회
+      if (speciesId === 869 && engName) {
+        // engName 예: "alcremie-vanilla-cream-strawberry-sweet" or "alcremie-gmax"
+        // Showdown 파일명: "alcremie-vanilla-cream-strawberry.gif" ("-sweet" 제거)
+        const showdownName = engName.replace(/-sweet$/, '');
+        const folder = isShiny ? 'ani-shiny' : 'ani';
+        const directUrl = `play.pokemonshowdown.com/sprites/${folder}/${showdownName}.gif`;
+        // weserv 프록시: GIF의 첫 프레임을 PNG로 변환해서 CORS 가능하게 반환
+        imageUrl = `https://images.weserv.nl/?url=${directUrl}&output=png&n=1`;
+      }
+      else if (formId) {
+        // 외형(cosmetic) 폼인 경우 → pokemon-form 엔드포인트에서 따로 가져오기
+        try {
+          const formRes = await fetch(`https://pokeapi.co/api/v2/pokemon-form/${formId}`);
+          const formData = await formRes.json();
+          imageUrl = isShiny
+            ? formData.sprites.front_shiny
+            : formData.sprites.front_default;
+          if (!imageUrl) {
+            imageUrl = isShiny
+              ? data.sprites.other['official-artwork'].front_shiny
+              : data.sprites.other['official-artwork'].front_default;
+          }
+        } catch (e) {
+          imageUrl = isShiny
+            ? data.sprites.other['official-artwork'].front_shiny
+            : data.sprites.other['official-artwork'].front_default;
+        }
+      } else {
+        imageUrl = isShiny
+          ? data.sprites.other['official-artwork'].front_shiny
+          : data.sprites.other['official-artwork'].front_default;
+        if (!imageUrl && isShiny) {
+          imageUrl = data.sprites.front_shiny || data.sprites.other['official-artwork'].front_default;
+        }
+      }
+
+      if (!imageUrl) {
+        imageUrl = data.sprites.front_default;
+      }
+
+      const displayName = isShiny ? `✨ ${koreanName}` : koreanName;
+
+      searchResults.innerHTML = `
+        <div class="result-item" onclick="addPokemonToMain('${displayName}', ${heightCm}, '${imageUrl}')">
+            <img src="${imageUrl}" alt="${displayName}" class="result-img" crossorigin="anonymous">
+            <div class="result-info">
+              <div class="result-name ${isShiny ? 'shiny' : ''}">${displayName}</div>
+              <div class="result-height">설정 키: ${heightCm}cm</div>
+            </div>
+        </div>
+      `;
+    } catch (error) {
+      searchResults.innerHTML = '<div class="loading-text" style="color:var(--danger);">이미지 로드 실패</div>';
+    }
+  }
+
+  function addPokemonToMain(name, heightCm, imgUrl) {
+    closeModal();
+    const objId = 'obj_' + Date.now();
+    const targetPixelHeight = heightCm * 3.5;
+
+    // 외부 도메인 이미지인지 판단 (file:// 환경에서 CORS 회피용)
+    const isExternal = imgUrl.startsWith('http://') || imgUrl.startsWith('https://');
+
+    // 트리밍 가능 여부: CORS 통과되면 가능, 아니면 통째로 사용
+    tryLoadAndTrim(imgUrl, isExternal, function(finalUrl, gotTrimmed) {
+      fabric.Image.fromURL(finalUrl, function(img) {
+        if (!img || !img.width) {
+          console.error('[이미지 로드 실패]', finalUrl);
+          alert('이미지를 캔버스에 추가하지 못했어요. (네트워크 또는 CORS 문제일 수 있어요)\n파일을 로컬 서버에서 열면 더 잘 작동해요.');
+          return;
+        }
+        const scale = targetPixelHeight / img.height;
+        img.set({
+          id: objId, customName: name, imgUrl: finalUrl,
+          left: (canvas.width / 2) - ((img.width * scale) / 2),
+          top: (canvas.height / 2) - ((img.height * scale) / 2),
+          scaleX: scale, scaleY: scale,
+          transparentCorners: false, cornerColor: '#18181b', cornerSize: 8,
+          objectCaching: false
+        });
+        img.outlineBg = null;
+        img.outlineMode = null;
+
+        canvas.add(img);
+        canvas.setActiveObject(img);
+        autoFitObject(img.height * scale);
+
+        addLayerItemToDOM(name, finalUrl, objId);
+        saveHistory();
+      }, gotTrimmed ? {} : { crossOrigin: 'anonymous' });
+      // 트리밍된 dataURL은 crossOrigin 불필요, 원본 URL은 anonymous로 시도
+    });
+  }
+
+  // 트리밍 시도 → 실패하면 원본 URL 그대로 반환
+  // callback(finalUrl, gotTrimmed)
+  function tryLoadAndTrim(imgUrl, isExternal, callback) {
+    const img = new Image();
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      console.warn('[트리밍 타임아웃] 원본 URL 그대로 사용:', imgUrl);
+      callback(imgUrl, false);
+    }, 5000);
+
+    if (isExternal) img.crossOrigin = 'anonymous';
+
+    img.onload = function() {
+      if (timedOut) return;
+      clearTimeout(timeout);
+      try {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth;
+        c.height = img.naturalHeight;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        // getImageData가 가능한지 테스트 (CORS 통과 여부)
+        const data = ctx.getImageData(0, 0, c.width, c.height).data;
+        // 투명 영역 트리밍 계산
+        let top = null, bottom = null, left = null, right = null;
+        for (let y = 0; y < c.height; y++) {
+          for (let x = 0; x < c.width; x++) {
+            if (data[(y * c.width + x) * 4 + 3] > 0) {
+              if (top === null) top = y;
+              bottom = y;
+              if (left === null || x < left) left = x;
+              if (right === null || x > right) right = x;
+            }
+          }
+        }
+        if (top !== null) {
+          const w = right - left + 1;
+          const h = bottom - top + 1;
+          const trimmed = document.createElement('canvas');
+          trimmed.width = w; trimmed.height = h;
+          trimmed.getContext('2d').drawImage(c, left, top, w, h, 0, 0, w, h);
+          callback(trimmed.toDataURL('image/png'), true);
+        } else {
+          callback(imgUrl, false);
+        }
+      } catch (e) {
+        // CORS로 getImageData 막힘 → 트리밍 없이 원본 그대로
+        console.warn('[CORS로 트리밍 불가] 원본 사용:', e.message);
+        callback(imgUrl, false);
+      }
+    };
+
+    img.onerror = function() {
+      if (timedOut) return;
+      clearTimeout(timeout);
+      // crossOrigin 옵션이 거부됐을 가능성 → 옵션 빼고 재시도
+      if (img.crossOrigin) {
+        console.warn('[CORS 거부] crossOrigin 빼고 재시도:', imgUrl);
+        const retryImg = new Image();
+        retryImg.onload = () => callback(imgUrl, false);
+        retryImg.onerror = () => {
+          console.error('[이미지 완전 실패]', imgUrl);
+          callback(imgUrl, false); // 실패해도 일단 콜백, fabric에서 한 번 더 시도
+        };
+        retryImg.src = imgUrl;
+      } else {
+        callback(imgUrl, false);
+      }
+    };
+
+    if (imgUrl.startsWith('http') && !imgUrl.startsWith('data:')) {
+      img.src = imgUrl + (imgUrl.includes('?') ? '&' : '?') + 'v=' + Date.now();
+    } else {
+      img.src = imgUrl;
+    }
+  }
+
+  // --- 레이어 관리 ---
+  function addLayerItemToDOM(name, imgUrl, objId) {
+    const list = document.getElementById('layer-list');
+    const item = document.createElement('div');
+    item.className = 'layer-item';
+    item.dataset.id = objId;
+    item.draggable = true;
+
+    item.innerHTML = `
+        <span class="drag-handle">≡</span>
+        <img src="${imgUrl}" class="layer-img">
+        <span class="layer-name">${name}</span>
+        <button class="remove-btn" title="삭제" onclick="event.stopPropagation(); removeObject('${objId}')"><i class="fa-solid fa-xmark"></i></button>
+    `;
+
+    list.insertBefore(item, list.firstChild);
+
+    item.addEventListener('click', () => {
+      const obj = canvas.getObjects().find(o => o.id === objId);
+      if(obj) {
+        canvas.setActiveObject(obj);
+        canvas.renderAll();
+        highlightLayer(obj);
+      }
+    });
+
+    item.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const obj = canvas.getObjects().find(o => o.id === objId);
+      if(obj) {
+        obj.set('flipX', !obj.flipX);
+        canvas.renderAll();
+        saveHistory();
+      }
+    });
+
+    addDragEventsToItem(item);
+  }
+
+  function removeObject(objId) {
+    const objToRemove = canvas.getObjects().find(o => o.id === objId);
+    if (objToRemove) {
+      if (objToRemove.outlineBg) canvas.remove(objToRemove.outlineBg);
+      canvas.remove(objToRemove);
+      saveHistory();
+    }
+    const layer = document.querySelector(`.layer-item[data-id="${objId}"]`);
+    if (layer) layer.remove();
+  }
+
+  function syncLayersToCanvas() {
+    const items = [...document.querySelectorAll('#layer-list .layer-item')].reverse();
+    items.forEach((item, index) => {
+      const objId = item.dataset.id;
+      const obj = canvas.getObjects().find(o => o.id === objId);
+      if (obj) {
+        obj.moveTo(index);
+      }
+    });
+    canvas.renderAll();
+  }
+
+  function highlightLayer(activeObj) {
+    document.querySelectorAll('.layer-item').forEach(l => l.classList.remove('active-layer'));
+    if(activeObj && activeObj.id) {
+      const layer = document.querySelector(`.layer-item[data-id="${activeObj.id}"]`);
+      if(layer) layer.classList.add('active-layer');
+    }
+  }
+
+  function rebuildLayersFromCanvas() {
+    const list = document.getElementById('layer-list');
+    list.innerHTML = '';
+    const objects = canvas.getObjects();
+    objects.forEach(obj => {
+      if(obj.id && obj.customName) addLayerItemToDOM(obj.customName, obj.imgUrl, obj.id);
+    });
+  }
+
+  function setupLayerDragAndDrop() {
+    const list = document.getElementById('layer-list');
+    list.addEventListener('dragover', e => {
+      e.preventDefault();
+      const afterElement = getDragAfterElement(list, e.clientY);
+      const draggable = document.querySelector('.dragging');
+      if (draggable) {
+        if (afterElement == null) list.appendChild(draggable);
+        else list.insertBefore(draggable, afterElement);
+      }
+    });
+  }
+
+  function addDragEventsToItem(item) {
+    item.addEventListener('dragstart', () => item.classList.add('dragging'));
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      syncLayersToCanvas();
+      saveHistory();
+    });
+  }
+
+  function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.layer-item:not(.dragging)')];
+    return draggableElements.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset) return { offset: offset, element: child };
+      else return closest;
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+  }
+
+  function saveAsPNG() {
+    canvas.discardActiveObject();
+    canvas.renderAll();
+    const link = document.createElement('a');
+    link.download = '포켓몬_크기비교.png';
+    link.href = canvas.toDataURL({ format: 'png', multiplier: 2 });
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function trimTransparentPixels(imgUrl, callback) {
+    const img = new Image();
+    if (!imgUrl.startsWith('data:') && !imgUrl.startsWith('blob:')) img.crossOrigin = 'anonymous';
+    img.onload = function() {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = img.width; tempCanvas.height = img.height;
+      const ctx = tempCanvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      try {
+        const imageData = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const data = imageData.data;
+        let top = null, bottom = null, left = null, right = null;
+        for (let y = 0; y < tempCanvas.height; y++) {
+          for (let x = 0; x < tempCanvas.width; x++) {
+            if (data[(y * tempCanvas.width + x) * 4 + 3] > 0) {
+              if (top === null) top = y;
+              bottom = y;
+              if (left === null || x < left) left = x;
+              if (right === null || x > right) right = x;
+            }
+          }
+        }
+        if (top !== null) {
+          const trimmedWidth = right - left + 1;
+          const trimmedHeight = bottom - top + 1;
+          const trimmedCanvas = document.createElement('canvas');
+          trimmedCanvas.width = trimmedWidth; trimmedCanvas.height = trimmedHeight;
+          trimmedCanvas.getContext('2d').drawImage(
+            tempCanvas, left, top, trimmedWidth, trimmedHeight, 0, 0, trimmedWidth, trimmedHeight
+          );
+          callback(trimmedCanvas.toDataURL('image/png'));
+        } else callback(imgUrl);
+      } catch (e) { callback(imgUrl); }
+    };
+    if (imgUrl.startsWith('http')) img.src = imgUrl + '?v=' + new Date().getTime();
+    else img.src = imgUrl;
+  }
+
+  // ============================================
+  // 로컬 저장 시스템 (IndexedDB 자동저장 + JSON 백업)
+  // ============================================
+  const DB_NAME = 'PokemonSizeComparerDB';
+  const STORE_NAME = 'projects';
+  const PROJECT_KEY = 'current';
+  let db = null;
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = (e) => {
+        const database = e.target.result;
+        if (!database.objectStoreNames.contains(STORE_NAME)) {
+          database.createObjectStore(STORE_NAME);
+        }
+      };
+      req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  function setStatus(text, color) {
+    const el = document.getElementById('autosave-status');
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = color || 'var(--text-3)';
+  }
+
+  // 디바운싱: 짧은 시간에 여러 번 호출돼도 마지막 1회만 실제 저장
+  function scheduleAutosave() {
+    if (autosaveTimer) clearTimeout(autosaveTimer);
+    setStatus('● 변경사항 있음', 'var(--text-3)');
+    autosaveTimer = setTimeout(() => {
+      autosaveToIndexedDB();
+    }, 1500);
+  }
+
+  async function autosaveToIndexedDB() {
+    if (!db) return;
+    try {
+      setStatus('● 저장 중...', 'var(--text-3)');
+      const payload = {
+        canvas: canvas.toJSON(['id', 'customName', 'imgUrl']),
+        viewport: canvas.viewportTransform,
+        savedAt: new Date().toISOString()
+      };
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      store.put(payload, PROJECT_KEY);
+      tx.oncomplete = () => {
+        const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        setStatus(`● 저장됨 (${time})`, '#10b981');
+      };
+      tx.onerror = () => setStatus('● 저장 실패', 'var(--danger)');
+    } catch (e) {
+      console.error('Autosave error:', e);
+      setStatus('● 저장 실패', 'var(--danger)');
+    }
+  }
+
+  async function loadFromIndexedDB() {
+    if (!db) return;
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.get(PROJECT_KEY);
+      req.onsuccess = () => {
+        const data = req.result;
+        if (data && data.canvas) {
+          restoreCanvasFromData(data, () => {
+            const time = new Date(data.savedAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+            setStatus(`● 복원 완료 (${time})`, '#10b981');
+            resolve(true);
+          });
+        } else {
+          setStatus('● 새 프로젝트', 'var(--text-3)');
+          resolve(false);
+        }
+      };
+      req.onerror = () => resolve(false);
+    });
+  }
+
+  function restoreCanvasFromData(data, callback) {
+    isRestoring = true;
+    canvas.loadFromJSON(data.canvas, () => {
+      if (data.viewport) {
+        canvas.setViewportTransform(data.viewport);
+      }
+      canvas.renderAll();
+      rebuildLayersFromCanvas();
+      isRestoring = false;
+      historyStack = [];
+      historyIndex = -1;
+      saveHistory();
+      if (callback) callback();
+    });
+  }
+
+  // --- JSON 수동 내보내기 ---
+  document.getElementById('export-json-btn').addEventListener('click', () => {
+    const payload = {
+      version: 1,
+      app: 'PokemonSizeComparer',
+      canvas: canvas.toJSON(['id', 'customName', 'imgUrl']),
+      viewport: canvas.viewportTransform,
+      savedAt: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    link.download = `포켓몬크기비교_${dateStr}.json`;
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  // --- JSON 수동 불러오기 ---
+  document.getElementById('import-json-btn').addEventListener('click', () => {
+    document.getElementById('import-json-input').click();
+  });
+
+  document.getElementById('import-json-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!confirm('현재 작업을 덮어쓰고 파일을 불러오시겠습니까?')) {
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        if (!data.canvas) throw new Error('잘못된 파일 형식입니다.');
+        restoreCanvasFromData(data, () => {
+          setStatus('● 파일에서 불러옴', '#10b981');
+        });
+      } catch (err) {
+        alert('파일을 불러올 수 없습니다: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  // --- 새 프로젝트 ---
+  document.getElementById('clear-project-btn').addEventListener('click', async () => {
+    if (!confirm('정말 모든 내용을 비우시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+
+    canvas.clear();
+    canvas.backgroundColor = '#ffffff';
+    canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+    canvas.renderAll();
+    document.getElementById('layer-list').innerHTML = '';
+    historyStack = [];
+    historyIndex = -1;
+    saveHistory();
+
+    // IndexedDB에서도 삭제
+    if (db) {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).delete(PROJECT_KEY);
+    }
+    setStatus('● 새 프로젝트', 'var(--text-3)');
+  });
+
+  // 페이지 로드 시 자동 복원
+  (async function initStorage() {
+    try {
+      await openDB();
+      // canvas 초기화 다 끝난 후 복원
+      setTimeout(async () => {
+        await loadFromIndexedDB();
+      }, 100);
+    } catch (e) {
+      console.warn('IndexedDB 사용 불가:', e);
+      setStatus('● 로컬 저장 비활성', 'var(--text-3)');
+    }
+  })();
+
+
+  window.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault();
+        undo();
+      } else if (e.key === 'y' || e.key === 'Y') {
+        e.preventDefault();
+        redo();
+      }
+    }
+  });
+</script>
+</body>
+</html>
